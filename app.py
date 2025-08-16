@@ -3,7 +3,6 @@ import numpy as np
 from PIL import Image
 import tensorflow as tf
 import io
-from tensorflow.keras.applications import EfficientNetB0
 
 # ====== KONFIGURASI ======
 MODEL_PATH = 'best_model.h5'
@@ -39,28 +38,11 @@ DISEASE_INFO = {
     }
 }
 
+# ====== FUNGSI ======
 @st.cache_resource
 def load_model():
     try:
-        # 1. Bangun kerangka model dengan input shape yang benar (3 kanal warna)
-        # Pastikan weights=None agar tidak mengunduh bobot dari ImageNet
-        # Ganti EfficientNetB0 jika Anda menggunakan model lain
-        base_model = EfficientNetB0(
-            include_top=False,
-            input_shape=(224, 224, 3),
-            weights=None  # Penting!
-        )
-
-        # 2. Tambahkan layer klasifikasi Anda di atasnya
-        # Pastikan jumlah neuron di layer Dense terakhir sama dengan jumlah kelas Anda (5)
-        x = tf.keras.layers.GlobalAveragePooling2D()(base_model.output)
-        output = tf.keras.layers.Dense(len(CLASS_NAMES), activation='softmax')(x)
-
-        model = tf.keras.Model(inputs=base_model.input, outputs=output)
-
-        # 3. Muat HANYA bobot (weights) ke dalam arsitektur yang sudah benar
-        model.load_weights(MODEL_PATH)
-
+        model = tf.keras.models.load_model(MODEL_PATH)
         return model
     except Exception as e:
         st.error(f"❌ Gagal memuat model: {e}")
