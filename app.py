@@ -48,41 +48,22 @@ def load_model():
         st.error(f"❌ Gagal memuat model: {e}")
         return None
 
-def get_model_channels(model):
-    """Cek apakah model pakai grayscale (1 channel) atau RGB (3 channel)."""
-    try:
-        input_shape = model.layers[0].input_shape
-        channels = input_shape[-1]
-        return channels
-    except:
-        return 3  # Default RGB
-
-def preprocess_image(image_bytes, target_size, channels):
+def preprocess_image(image_bytes, target_size=(224, 224)):
     img = Image.open(io.BytesIO(image_bytes))
-    if channels == 1:
-        img = img.convert('L')  # Grayscale
-        img_array = tf.keras.preprocessing.image.img_to_array(img)
-        img_array = np.expand_dims(img_array, axis=-1)
-    else:
-        img = img.convert('RGB')  # RGB
-        img_array = tf.keras.preprocessing.image.img_to_array(img)
-
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
     img = img.resize(target_size)
+    img_array = tf.keras.preprocessing.image.img_to_array(img)
     img_array = np.expand_dims(img_array, axis=0)
-    img_array = img_array / 255.0  # Normalisasi sederhana
-    return img_array
+    return tf.keras.applications.efficientnet.preprocess_input(img_array)
 
 # ====== UI STREAMLIT ======
 st.set_page_config(page_title="🍃 Klasifikasi Penyakit Daun Pisang", layout="wide")
+
 st.markdown("<h1 style='text-align:center;'>🍃 Klasifikasi Penyakit Daun Pisang</h1>", unsafe_allow_html=True)
 st.write("Unggah gambar daun pisang untuk memprediksi jenis penyakitnya.")
 
 model = load_model()
-
-if model:
-    channels = get_model_channels(model)  # Deteksi grayscale atau RGB
-else:
-    channels = 3
 
 uploaded_file = st.file_uploader("📤 Pilih gambar daun pisang", type=["jpg", "png", "jpeg"])
 
@@ -91,7 +72,7 @@ if uploaded_file is not None and model:
 
     # Proses prediksi
     with st.spinner("🔍 Sedang memproses..."):
-        processed_image = preprocess_image(image_bytes, (224, 224), channels)
+        processed_image = preprocess_image(image_bytes)
         prediction = model.predict(processed_image)
         confidence = np.max(prediction[0])
         predicted_class_index = np.argmax(prediction[0])
@@ -102,7 +83,7 @@ if uploaded_file is not None and model:
         'prevention': 'Tidak ada saran penanganan.'
     })
 
-    # Layout 2 kolom
+    # Layout 2 kolom: Gambar di kiri, hasil di kanan
     col1, col2 = st.columns([1, 2])
 
     with col1:
