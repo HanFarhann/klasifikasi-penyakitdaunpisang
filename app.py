@@ -8,10 +8,10 @@ import io
 MODEL_PATH = "best_model.h5"
 
 CLASS_NAMES = [
-    'bukan_daun_pisang', 
-    'cordana', 
-    'healthy', 
-    'pestalotiopsis', 
+    'bukan_daun_pisang',
+    'cordana',
+    'healthy',
+    'pestalotiopsis',
     'sigatoka'
 ]
 
