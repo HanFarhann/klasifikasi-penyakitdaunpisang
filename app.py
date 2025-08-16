@@ -48,7 +48,7 @@ def load_model():
         st.error(f"❌ Gagal memuat model: {e}")
         return None
 
-def preprocess_image(image_bytes, target_size=(224, 224, 3)):
+def preprocess_image(image_bytes, target_size=(224, 224)):
     img = Image.open(io.BytesIO(image_bytes))
     if img.mode != 'RGB':
         img = img.convert('RGB')
