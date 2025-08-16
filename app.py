@@ -5,7 +5,7 @@ import tensorflow as tf
 import io
 
 # ====== KONFIGURASI ======
-MODEL_PATH = "best_model.h5"
+MODEL_PATH = 'best_model.h5'
 
 CLASS_NAMES = [
     'bukan_daun_pisang',
