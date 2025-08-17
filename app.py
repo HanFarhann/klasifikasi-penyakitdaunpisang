@@ -1,101 +1,49 @@
 import streamlit as st
+import tensorflow as tf
 import numpy as np
 from PIL import Image
-import tensorflow as tf
-import io
 
-# ====== KONFIGURASI ======
-MODEL_PATH = 'best_model.h5'
+# =========================
+# 1. Bangun ulang arsitektur sesuai training
+# =========================
+IMG_SIZE = (224, 224)  # ganti kalau kamu pakai ukuran lain
+NUM_CLASSES = 5        # ganti sesuai jumlah kelasmu
 
-CLASS_NAMES = [
-    'bukan_daun_pisang',
-    'cordana',
-    'healthy',
-    'pestalotiopsis',
-    'sigatoka'
-]
+base_model = tf.keras.applications.EfficientNetB0(
+    input_shape=(IMG_SIZE[0], IMG_SIZE[1], 3),
+    include_top=False,
+    weights=None
+)
 
-DISEASE_INFO = {
-    'cordana': {
-        'description': "Penyakit Cordana disebabkan oleh jamur Cordana musae. Gejalanya berupa bercak kuning pucat atau coklat berbentuk oval seperti mata pada daun.",
-        'prevention': "Jaga kebersihan kebun, lakukan pemangkasan daun yang terinfeksi secara teratur, dan pastikan jarak tanam tidak terlalu rapat untuk sirkulasi udara yang baik. Penggunaan fungisida berbahan aktif mankozeb atau propikonazol bisa menjadi pilihan."
-    },
-    'pestalotiopsis': {
-        'description': "Penyakit ini disebabkan oleh jamur Pestalotiopsis. Gejalanya adalah bercak kecil berwarna coklat kehitaman pada tepi daun yang kemudian menyebar ke tengah.",
-        'prevention': "Hindari luka mekanis pada tanaman. Lakukan sanitasi kebun dengan membuang daun-daun kering dan terinfeksi. Perbaiki drainase tanah dan gunakan fungisida yang mengandung tembaga oksiklorida atau klorotalonil."
-    },
-    'sigatoka': {
-        'description': "Sigatoka adalah salah satu penyakit paling merusak pada pisang, disebabkan oleh jamur Mycosphaerella. Gejalanya berupa garis-garis kecil kuning yang berkembang menjadi bercak coklat dengan tepi kuning.",
-        'prevention': "Gunakan varietas pisang yang tahan. Atur drainase dan irigasi dengan baik. Lakukan pemupukan berimbang, terutama Kalium. Semprotkan fungisida sistemik seperti propikonazol atau tebukonazol secara berkala."
-    },
-    'healthy': {
-        'description': "Daun pisang dalam kondisi sehat, tidak menunjukkan gejala penyakit.",
-        'prevention': "Pertahankan praktik agronomi yang baik: pemupukan seimbang, irigasi cukup, dan sanitasi kebun untuk menjaga tanaman tetap sehat dan produktif."
-    },
-    'bukan_daun_pisang': {
-        'description': "Gambar yang diunggah tidak terdeteksi sebagai daun pisang atau kualitas gambar tidak cukup baik untuk dianalisis.",
-        'prevention': "Silakan coba lagi dengan gambar daun pisang yang lebih jelas dan fokus. Pastikan objek utama dalam gambar adalah daun pisang."
-    }
-}
+x = tf.keras.layers.GlobalAveragePooling2D()(base_model.output)
+output = tf.keras.layers.Dense(NUM_CLASSES, activation="softmax")(x)
+model = tf.keras.Model(inputs=base_model.input, outputs=output)
 
-# ====== FUNGSI ======
-@st.cache_resource
-def load_model():
-    try:
-        model = tf.keras.models.load_model(MODEL_PATH)
-        return model
-    except Exception as e:
-        st.error(f"❌ Gagal memuat model: {e}")
-        return None
+# =========================
+# 2. Load weights hasil training
+# =========================
+model.load_weights("best_model.h5")
 
-def preprocess_image(image_bytes, target_size=(224, 224)):
-    img = Image.open(io.BytesIO(image_bytes))
-    if img.mode != 'RGB':
-        img = img.convert('RGB')
-    img = img.resize(target_size)
-    img_array = tf.keras.preprocessing.image.img_to_array(img)
-    img_array = np.expand_dims(img_array, axis=0)
-    return tf.keras.applications.efficientnet.preprocess_input(img_array)
+# =========================
+# 3. Streamlit UI
+# =========================
+st.title("🍌 Klasifikasi Penyakit Daun Pisang")
 
-# ====== UI STREAMLIT ======
-st.set_page_config(page_title="🍃 Klasifikasi Penyakit Daun Pisang", layout="wide")
+uploaded_file = st.file_uploader("Unggah gambar daun pisang", type=["jpg","jpeg","png"])
 
-st.markdown("<h1 style='text-align:center;'>🍃 Klasifikasi Penyakit Daun Pisang</h1>", unsafe_allow_html=True)
-st.write("Unggah gambar daun pisang untuk memprediksi jenis penyakitnya.")
+if uploaded_file is not None:
+    # Buka gambar
+    img = Image.open(uploaded_file).convert("RGB")
+    st.image(img, caption="Gambar diunggah", use_column_width=True)
 
-model = load_model()
+    # Preprocessing
+    img = img.resize(IMG_SIZE)
+    img_array = np.array(img) / 255.0
+    img_array = np.expand_dims(img_array, axis=0)  # (1,224,224,3)
 
-uploaded_file = st.file_uploader("📤 Pilih gambar daun pisang", type=["jpg", "png", "jpeg"])
+    # Prediksi
+    preds = model.predict(img_array)
+    class_idx = np.argmax(preds[0])
+    confidence = np.max(preds[0])
 
-if uploaded_file is not None and model:
-    image_bytes = uploaded_file.read()
-
-    # Proses prediksi
-    with st.spinner("🔍 Sedang memproses..."):
-        processed_image = preprocess_image(image_bytes)
-        prediction = model.predict(processed_image)
-        confidence = np.max(prediction[0])
-        predicted_class_index = np.argmax(prediction[0])
-        class_name = CLASS_NAMES[predicted_class_index]
-
-    info = DISEASE_INFO.get(class_name, {
-        'description': 'Informasi tidak ditemukan.',
-        'prevention': 'Tidak ada saran penanganan.'
-    })
-
-    # Layout 2 kolom: Gambar di kiri, hasil di kanan
-    col1, col2 = st.columns([1, 2])
-
-    with col1:
-        st.image(image_bytes, caption="Gambar yang diunggah", use_container_width=True)
-
-    with col2:
-        if class_name == 'bukan_daun_pisang':
-            st.error("### ❌ Hasil Prediksi: Bukan Daun Pisang.")
-        else:
-            st.success(f"### ✅ Hasil Prediksi: **{class_name.replace('_', ' ').title()}**")
-        st.write(f"📊 **Tingkat Kepercayaan (Confidence):** {confidence*100:.2f}%")
-        st.markdown(f"### 📋 Deskripsi")
-        st.write(info['description'])
-        st.markdown(f"### 🛡 Pencegahan")
-        st.write(info['prevention'])
+    st.write(f"### ✅ Prediksi: Kelas {class_idx} (confidence: {confidence:.2f})")
