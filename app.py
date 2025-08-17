@@ -2,30 +2,20 @@ import streamlit as st
 import tensorflow as tf
 import numpy as np
 from PIL import Image
+from tensorflow.keras.models import load_model
 
 # =========================
-# 1. Bangun ulang arsitektur sesuai training
+# 1. Load model langsung
 # =========================
-IMG_SIZE = (224, 224)  # ganti kalau kamu pakai ukuran lain
-NUM_CLASSES = 5        # ganti sesuai jumlah kelasmu
+MODEL_PATH = "best_model.h5"
+model = load_model(MODEL_PATH)
 
-base_model = tf.keras.applications.EfficientNetB0(
-    input_shape=(IMG_SIZE[0], IMG_SIZE[1], 3),
-    include_top=False,
-    weights=None
-)
-
-x = tf.keras.layers.GlobalAveragePooling2D()(base_model.output)
-output = tf.keras.layers.Dense(NUM_CLASSES, activation="softmax")(x)
-model = tf.keras.Model(inputs=base_model.input, outputs=output)
+# Kalau kamu perlu tahu jumlah kelas:
+NUM_CLASSES = model.output_shape[-1]
+IMG_SIZE = model.input_shape[1:3]
 
 # =========================
-# 2. Load weights hasil training
-# =========================
-model.load_weights("best_model.h5")
-
-# =========================
-# 3. Streamlit UI
+# 2. Streamlit UI
 # =========================
 st.title("🍌 Klasifikasi Penyakit Daun Pisang")
 
